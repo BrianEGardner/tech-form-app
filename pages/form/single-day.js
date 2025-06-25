@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import supabase from "../../lib/supabaseClient";
 
 export default function SingleDayForm() {
@@ -8,13 +8,44 @@ export default function SingleDayForm() {
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [workSummary, setWorkSummary] = useState("");
+  const [expenses, setExpenses] = useState({ parking: "", tolls: "", materials: "" });
+
   const canvasRef = useRef(null);
+  const isDrawing = useRef(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const ticketParam = params.get("ticket");
     if (ticketParam) setTicket(ticketParam);
   }, []);
+
+  const handleMouseDown = (e) => {
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    const rect = canvas.getBoundingClientRect();
+    ctx.beginPath();
+    ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+    isDrawing.current = true;
+  };
+
+  const handleMouseMove = (e) => {
+    if (!isDrawing.current) return;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    const rect = canvas.getBoundingClientRect();
+    ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
+    ctx.stroke();
+  };
+
+  const handleMouseUp = () => {
+    isDrawing.current = false;
+  };
+
+  const clearSignature = () => {
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  };
 
   const getSignatureImage = () => canvasRef.current.toDataURL("image/png");
 
@@ -26,6 +57,7 @@ export default function SingleDayForm() {
       start_time: startTime,
       end_time: endTime,
       work_summary: workSummary,
+      expenses,
       customer_signature: getSignatureImage(),
     };
 
@@ -35,7 +67,7 @@ export default function SingleDayForm() {
       console.error("❌ Submit Error:", error);
       alert("Failed to submit job form.");
     } else {
-      alert("✅ Job submitted!");
+      alert("✅ Job submitted successfully!");
     }
   };
 
@@ -55,13 +87,32 @@ export default function SingleDayForm() {
       <label htmlFor="endTime">End Time</label>
       <input id="endTime" type="datetime-local" value={endTime} onChange={(e) => setEndTime(e.target.value)} /><br /><br />
 
-      <label htmlFor="workSummary">Work Summary</label>
-      <textarea id="workSummary" value={workSummary} onChange={(e) => setWorkSummary(e.target.value)} rows={5} style={{ width: "100%" }} /><br /><br />
+      <label htmlFor="workSummary">Work Summary</label><br />
+      <textarea id="workSummary" rows={4} value={workSummary} onChange={(e) => setWorkSummary(e.target.value)} style={{ width: "100%" }} /><br /><br />
+
+      <label htmlFor="parking">Parking ($)</label>
+      <input id="parking" type="number" value={expenses.parking} onChange={(e) => setExpenses({ ...expenses, parking: e.target.value })} /><br />
+
+      <label htmlFor="tolls">Tolls ($)</label>
+      <input id="tolls" type="number" value={expenses.tolls} onChange={(e) => setExpenses({ ...expenses, tolls: e.target.value })} /><br />
+
+      <label htmlFor="materials">Materials ($)</label>
+      <input id="materials" type="number" value={expenses.materials} onChange={(e) => setExpenses({ ...expenses, materials: e.target.value })} /><br /><br />
 
       <label htmlFor="signature">Customer Signature</label><br />
-      <canvas ref={canvasRef} id="signature" width={500} height={200} style={{ border: "1px solid black" }} /><br /><br />
+      <canvas
+        id="signature"
+        ref={canvasRef}
+        width={500}
+        height={200}
+        style={{ border: "1px solid black" }}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+      /><br />
+      <button type="button" onClick={clearSignature}>Clear Signature</button><br /><br />
 
-      <button type="button" onClick={handleSubmit}>Submit</button>
+      <button type="button" onClick={handleSubmit}>Submit Job Form</button>
     </div>
   );
 }

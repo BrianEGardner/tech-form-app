@@ -3,11 +3,14 @@ import supabase from "../../lib/supabaseClient";
 
 export default function MultiDayForm() {
   const [ticket, setTicket] = useState("");
-  const [entries, setEntries] = useState([
-    { day: 1, date: "", start_time: "", end_time: "", summary: "" },
-  ]);
+  const [technician, setTechnician] = useState("");
+  const [customerName, setCustomerName] = useState("");
+  const [daysWorked, setDaysWorked] = useState([{ date: "", hours: "" }]);
+  const [workSummary, setWorkSummary] = useState("");
   const [expenses, setExpenses] = useState({ parking: "", tolls: "", materials: "" });
+
   const canvasRef = useRef(null);
+  const isDrawing = useRef(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -15,12 +18,53 @@ export default function MultiDayForm() {
     if (ticketParam) setTicket(ticketParam);
   }, []);
 
+  const handleMouseDown = (e) => {
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    const rect = canvas.getBoundingClientRect();
+    ctx.beginPath();
+    ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+    isDrawing.current = true;
+  };
+
+  const handleMouseMove = (e) => {
+    if (!isDrawing.current) return;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    const rect = canvas.getBoundingClientRect();
+    ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
+    ctx.stroke();
+  };
+
+  const handleMouseUp = () => {
+    isDrawing.current = false;
+  };
+
+  const clearSignature = () => {
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  };
+
   const getSignatureImage = () => canvasRef.current.toDataURL("image/png");
+
+  const addDay = () => {
+    setDaysWorked([...daysWorked, { date: "", hours: "" }]);
+  };
+
+  const updateDay = (index, key, value) => {
+    const updated = [...daysWorked];
+    updated[index][key] = value;
+    setDaysWorked(updated);
+  };
 
   const handleSubmit = async () => {
     const payload = {
       ticket,
-      work_log: entries,
+      technician,
+      customer_name: customerName,
+      days_worked: daysWorked,
+      work_summary: workSummary,
       expenses,
       customer_signature: getSignatureImage(),
     };
@@ -31,52 +75,44 @@ export default function MultiDayForm() {
       console.error("❌ Submit Error:", error);
       alert("Failed to submit job form.");
     } else {
-      alert("✅ Job submitted!");
+      alert("✅ Job submitted successfully!");
     }
   };
 
-  const addDay = () => {
-    setEntries([
-      ...entries,
-      { day: entries.length + 1, date: "", start_time: "", end_time: "", summary: "" },
-    ]);
-  };
-
-  const handleEntryChange = (index, field, value) => {
-    const updated = [...entries];
-    updated[index][field] = value;
-    setEntries(updated);
-  };
-
   return (
-    <div style={{ maxWidth: 600, margin: "2rem auto", padding: "1rem", border: "1px solid #ccc", borderRadius: 8 }}>
-      <h2>Multi-Day Technician Job Form</h2>
+    <div style={{ maxWidth: 700, margin: "2rem auto", padding: "1rem", border: "1px solid #ccc", borderRadius: 8 }}>
+      <h2>Multi-Day Technician Work Order</h2>
 
-      {entries.map((entry, idx) => (
-        <div key={idx} style={{ borderBottom: "1px solid #eee", marginBottom: "1rem" }}>
-          <h4>Day {entry.day}</h4>
+      <label htmlFor="technician">Technician Name</label>
+      <input id="technician" value={technician} onChange={(e) => setTechnician(e.target.value)} /><br /><br />
 
-          <label htmlFor={`date-${idx}`}>Date</label>
-          <input id={`date-${idx}`} type="date" value={entry.date} onChange={(e) => handleEntryChange(idx, "date", e.target.value)} /><br />
+      <label htmlFor="customerName">Customer Name</label>
+      <input id="customerName" value={customerName} onChange={(e) => setCustomerName(e.target.value)} /><br /><br />
 
-          <label htmlFor={`start-${idx}`}>Start Time</label>
-          <input id={`start-${idx}`} type="time" value={entry.start_time} onChange={(e) => handleEntryChange(idx, "start_time", e.target.value)} /><br />
-
-          <label htmlFor={`end-${idx}`}>End Time</label>
-          <input id={`end-${idx}`} type="time" value={entry.end_time} onChange={(e) => handleEntryChange(idx, "end_time", e.target.value)} /><br />
-
-          <label htmlFor={`summary-${idx}`}>Work Summary</label><br />
-          <textarea
-            id={`summary-${idx}`}
-            rows={3}
-            value={entry.summary}
-            onChange={(e) => handleEntryChange(idx, "summary", e.target.value)}
-            style={{ width: "100%" }}
-          /><br />
+      <h4>Days Worked</h4>
+      {daysWorked.map((day, index) => (
+        <div key={index}>
+          <label htmlFor={`day-date-${index}`}>Date</label>
+          <input
+            id={`day-date-${index}`}
+            type="date"
+            value={day.date}
+            onChange={(e) => updateDay(index, "date", e.target.value)}
+          />
+          <label htmlFor={`day-hours-${index}`} style={{ marginLeft: "1rem" }}>Hours</label>
+          <input
+            id={`day-hours-${index}`}
+            type="number"
+            value={day.hours}
+            onChange={(e) => updateDay(index, "hours", e.target.value)}
+          />
+          <br /><br />
         </div>
       ))}
+      <button type="button" onClick={addDay}>+ Add Day</button><br /><br />
 
-      <button type="button" onClick={addDay}>Add Day</button><br /><br />
+      <label htmlFor="workSummary">Work Summary</label><br />
+      <textarea id="workSummary" rows={4} value={workSummary} onChange={(e) => setWorkSummary(e.target.value)} style={{ width: "100%" }} /><br /><br />
 
       <label htmlFor="parking">Parking ($)</label>
       <input id="parking" type="number" value={expenses.parking} onChange={(e) => setExpenses({ ...expenses, parking: e.target.value })} /><br />
@@ -88,9 +124,19 @@ export default function MultiDayForm() {
       <input id="materials" type="number" value={expenses.materials} onChange={(e) => setExpenses({ ...expenses, materials: e.target.value })} /><br /><br />
 
       <label htmlFor="signature">Customer Signature</label><br />
-      <canvas ref={canvasRef} id="signature" width={500} height={200} style={{ border: "1px solid black" }} /><br /><br />
+      <canvas
+        id="signature"
+        ref={canvasRef}
+        width={500}
+        height={200}
+        style={{ border: "1px solid black" }}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+      /><br />
+      <button type="button" onClick={clearSignature}>Clear Signature</button><br /><br />
 
-      <button type="button" onClick={handleSubmit}>Submit</button>
+      <button type="button" onClick={handleSubmit}>Submit Multi-Day Form</button>
     </div>
   );
 }
